@@ -1,0 +1,35 @@
+ONNX:
+python3 export_onnx.py \
+  --net mb2-ssd-lite \
+  --input models/custom_ssd/mb2-ssd-lite-Epoch-50-Loss-2.34.pth \
+  --labels models/custom_ssd/labels.txt \
+  --resolution 300 \
+  --output models/custom_ssd/mb2-ssd-lite.onnx
+
+TRAIN:
+python train_ssd.py \
+--dataset-type voc \
+--datasets ~/Projects/newcontrol/data_voc \
+--net mb2-ssd-lite \
+--base-net models/mb2-imagenet-71_8.pth \
+--freeze-base-net \
+--scheduler cosine \
+--lr 0.001 \
+--base-net-lr 0.0 \
+--t-max 200 \
+--num-epochs 200 \
+--batch-size 8 \
+--validation-epochs 20 \
+--checkpoint-folder models/custom_ssd \
+--log-level info
+
+RUN_EXAMPLE:
+python run_ssd_example.py mb2-ssd-lite models/custom_ssd3/mb2-ssd-lite-Epoch-120-Loss-0.pth  models/custom_ssd3/labels.txt ../data_voc/JPEGImages/frame_007338.png
+
+DATASET:
+labelformat convert \
+    --task object-detection \
+    --input-format coco \
+    --input-file coco-labels/train.json \
+    --output-format pascalvoc \
+    --output-folder pascalvoc-labels
