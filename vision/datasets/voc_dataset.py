@@ -83,7 +83,7 @@ class VOCDataset(torch.utils.data.Dataset):
         if not self.keep_difficult:
             boxes = boxes[is_difficult == 0]
             labels = labels[is_difficult == 0]
-            
+        # print('__getitem__  image_id=' + str(image_id) + ' \nboxes=' + str(boxes) + ' \nlabels=' + str(labels))
         if logging.root.level is logging.DEBUG:
             logging.debug(f"voc_dataset image_id={image_id}" + ' \n    boxes=' + str(boxes) + ' \n    labels=' + str(labels))
 

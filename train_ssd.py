@@ -108,12 +108,12 @@ parser.add_argument('--checkpoint-folder', '--model-dir', default='models/',
                     help='Directory for saving checkpoint models')
 parser.add_argument('--log-level', default='info', type=str,
                     help='Logging level, one of:  debug, info, warning, error, critical (default: info)')
-                                        
+
 args = parser.parse_args()
 
 logging.basicConfig(stream=sys.stdout, level=getattr(logging, args.log_level.upper(), logging.INFO),
                     format='%(asctime)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-                    
+
 tensorboard = SummaryWriter(log_dir=os.path.join(args.checkpoint_folder, "tensorboard", f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"))
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
@@ -125,17 +125,17 @@ if args.use_cuda and torch.cuda.is_available():
 
 def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
     net.train(True)
-    
+
     train_loss = 0.0
     train_regression_loss = 0.0
     train_classification_loss = 0.0
-    
+
     running_loss = 0.0
     running_regression_loss = 0.0
     running_classification_loss = 0.0
-    
+
     num_batches = 0
-    
+
     for i, data in enumerate(loader):
         images, boxes, labels = data
         images = images.to(device)
@@ -152,7 +152,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         train_loss += loss.item()
         train_regression_loss += regression_loss.item()
         train_classification_loss += classification_loss.item()
-        
+
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
@@ -172,23 +172,25 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
             running_classification_loss = 0.0
 
         num_batches += 1
-        
+
     train_loss /= num_batches
     train_regression_loss /= num_batches
     train_classification_loss /= num_batches
-    
+
     logging.info(
         f"Epoch: {epoch}, " +
         f"Training Loss: {train_loss:.4f}, " +
         f"Training Regression Loss {train_regression_loss:.4f}, " +
         f"Training Classification Loss: {train_classification_loss:.4f}"
     )
-     
+
     tensorboard.add_scalar('Loss/train', train_loss, epoch)
     tensorboard.add_scalar('Regression Loss/train', train_regression_loss, epoch)
     tensorboard.add_scalar('Classification Loss/train', train_classification_loss, epoch)
 
 def test(loader, net, criterion, device):
+    if len(loader)<=0:
+        return 0, 0, 0
     net.eval()
     running_loss = 0.0
     running_regression_loss = 0.0
@@ -209,7 +211,7 @@ def test(loader, net, criterion, device):
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
-    
+
     return running_loss / num, running_regression_loss / num, running_classification_loss / num
 
 
@@ -217,15 +219,15 @@ if __name__ == '__main__':
     timer = Timer()
 
     logging.info(args)
-    
+
     # make sure that the checkpoint output dir exists
     if args.checkpoint_folder:
         args.checkpoint_folder = os.path.expanduser(args.checkpoint_folder)
 
         if not os.path.exists(args.checkpoint_folder):
             os.mkdir(args.checkpoint_folder)
-            
-    # select the network architecture and config     
+
+    # select the network architecture and config
     if args.net == 'vgg16-ssd':
         create_net = create_vgg_ssd
         config = vgg_ssd_config
@@ -246,7 +248,7 @@ if __name__ == '__main__':
         logging.fatal("The net type is wrong.")
         parser.print_help(sys.stderr)
         sys.exit(1)
-        
+
     # create data transforms for train/test/val
     train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std)
     target_transform = MatchPrior(config.priors, config.center_variance,
@@ -276,7 +278,7 @@ if __name__ == '__main__':
         else:
             raise ValueError(f"Dataset type {args.dataset_type} is not supported.")
         datasets.append(dataset)
-        
+
     # create training dataset
     logging.info(f"Stored labels into file {label_file}.")
     train_dataset = ConcatDataset(datasets)
@@ -284,8 +286,8 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, args.batch_size,
                               num_workers=args.num_workers,
                               shuffle=True)
-                           
-    # create validation dataset                           
+
+    # create validation dataset
     logging.info("Prepare Validation datasets.")
     if args.dataset_type == "voc":
         val_dataset = VOCDataset(dataset_path, transform=test_transform,
@@ -300,7 +302,7 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
                             shuffle=False)
-                      
+
     # create the network
     logging.info("Build network.")
     net = create_net(num_classes)
@@ -314,11 +316,11 @@ if __name__ == '__main__':
         elif args.dataset_type == 'open_images':
             eval_dataset = OpenImagesDataset(dataset_path, dataset_type="test")
         eval = MeanAPEvaluator(eval_dataset, net, arch=args.net, eval_dir=os.path.join(args.checkpoint_folder, 'eval_results'))
-        
+
     # freeze certain layers (if requested)
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr
-    
+
     if args.freeze_base_net:
         logging.info("Freeze base net.")
         freeze_net_layers(net.base_net)
@@ -355,7 +357,7 @@ if __name__ == '__main__':
 
     # load a previous model checkpoint (if requested)
     timer.start("Load Model")
-    
+
     if args.resume:
         logging.info(f"Resuming from the model {args.resume}")
         net.load(args.resume)
@@ -364,12 +366,12 @@ if __name__ == '__main__':
         net.init_from_base_net(args.base_net)
     elif args.pretrained_ssd:
         logging.info(f"Init from pretrained SSD {args.pretrained_ssd}")
-        
+
         if not os.path.exists(args.pretrained_ssd) and args.pretrained_ssd == DEFAULT_PRETRAINED_MODEL:
             os.system(f"wget --quiet --show-progress --progress=bar:force:noscroll --no-check-certificate https://nvidia.box.com/shared/static/djf5w54rjvpqocsiztzaandq1m3avr7c.pth -O {DEFAULT_PRETRAINED_MODEL}")
 
         net.init_from_pretrained_ssd(args.pretrained_ssd)
-        
+
     logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
 
     # move the model to GPU
@@ -378,10 +380,10 @@ if __name__ == '__main__':
     # define loss function and optimizer
     criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
                              center_variance=0.1, size_variance=0.2, device=DEVICE)
-                             
+
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-                                
+
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
 
@@ -401,34 +403,34 @@ if __name__ == '__main__':
 
     # train for the desired number of epochs
     logging.info(f"Start training from epoch {last_epoch + 1}.")
-    
+
     for epoch in range(last_epoch + 1, args.num_epochs):
         train(train_loader, net, criterion, optimizer, device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
         scheduler.step()
-        
+
         if epoch % args.validation_epochs == 0 or epoch == args.num_epochs - 1:
             val_loss, val_regression_loss, val_classification_loss = test(val_loader, net, criterion, DEVICE)
-            
+
             logging.info(
                 f"Epoch: {epoch}, " +
                 f"Validation Loss: {val_loss:.4f}, " +
                 f"Validation Regression Loss {val_regression_loss:.4f}, " +
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
-                    
+
             tensorboard.add_scalar('Loss/val', val_loss, epoch)
             tensorboard.add_scalar('Regression Loss/val', val_regression_loss, epoch)
             tensorboard.add_scalar('Classification Loss/val', val_classification_loss, epoch)
-    
+
             if args.validation_mean_ap:
                 mean_ap, class_ap = eval.compute()
                 eval.log_results(mean_ap, class_ap, f"Epoch: {epoch}, ")
-                        
+
                 tensorboard.add_scalar('Mean Average Precision/val', mean_ap, epoch)
-                
+
                 for i in range(len(class_ap)):
                     tensorboard.add_scalar(f"Class Average Precision/{eval_dataset.class_names[i+1]}", class_ap[i], epoch)
-    
+
             model_path = os.path.join(args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
             net.save(model_path)
             logging.info(f"Saved model {model_path}")
