@@ -19,6 +19,23 @@ python train_ssd.py \
 --checkpoint-folder models/custom_ssd \
 --log-level info
 
+TRAIN:
+python train_ssd.py \
+--dataset-type voc \
+--datasets ~/Projects/newcontrol/data_2_voc ~/Projects/newcontrol/data_4_voc ~/Projects/newcontrol/data_1_voc \
+--net mb2-ssd-lite \
+--base-net models/mb2-imagenet-71_8.pth \
+--scheduler cosine \
+--lr 0.001 \
+--base-net-lr 0.0001 \
+--t-max 200 \
+--num-epochs 200 \
+--batch-size 8 \
+--validation-epochs 20 \
+--checkpoint-folder models/custom_ssd \
+--log-level info
+
+RESUME:
 python train_ssd.py \
 --dataset-type voc \
 --datasets ~/Projects/newcontrol/data_4_voc_en ~/Projects/newcontrol/data_1_voc_en \
